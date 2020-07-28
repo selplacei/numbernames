@@ -1,4 +1,4 @@
-# This script finds the English name of a number according to the algorithm
+# This script finds the short scale English name of a number according to the algorithm
 # described in The Book of Numbers by J. H. Conway and R. K. Guy (pages 14-15).
 # The -s flag prints the input number to stderr and tells you when the calculation
 # is complete (useful when not running interactively).
@@ -10,10 +10,46 @@
 #   three million two thousand and fifty one
 import sys
 
+
+class ZillionNames:
+    HUNDREDS = {
+        0: '', 1: 'centi', 2: 'ducenti', 3: 'trecenti', 4: 'quadrigenti',
+        5: 'quingenti', 6: 'sescenti', 7: 'septigenti', 8: 'octigenti', 9: 'nongenti'
+    }
+    TENS = {
+        0: '', 1: 'deci', 2: 'viginti', 3: 'triginta', 4: 'quadraginta',
+        5: 'quinquaginta', 6: 'sexaginta', 7: 'septuaginta', 8: 'octoginta', 9: 'nonaginta'
+    }
+    UNITS = {
+        0: '', 1: 'un', 2: 'duo', 3: 'tre', 4: 'quattuor',
+        5: 'quinqua', 6: 'se', 7: 'septe', 8: 'octo', 9: 'nove'
+    }
+    S = {TENS[2], TENS[3], TENS[4], TENS[5], HUNDREDS[3], HUNDREDS[4], HUNDREDS[5]}
+    X = {TENS[8], HUNDREDS[1], HUNDREDS[8]}
+    M = {TENS[2], TENS[8], HUNDREDS[8]}
+    N = {TENS[1], TENS[3], TENS[4], TENS[5], TENS[6], *(HUNDREDS[i] for i in range(1, 8))}
+
+
+class UnitNames:
+    UNITS = {
+        '1': 'one', '2': 'two', '3': 'three', '4': 'four', '5': 'five',
+        '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
+    }
+    TEENS = {
+        '1': 'eleven', '2': 'twelve', '3': 'thirteen', '4': 'fourteen', '5': 'fifteen',
+        '6': 'sixteen', '7': 'seventeen', '8': 'eighteen', '9': 'nineteen'
+    }
+    TENS = {
+        '1': 'ten', '2': 'twenty', '3': 'thirty', '4': 'forty', '5': 'fifty',
+        '6': 'sixty', '7': 'seventy', '8': 'eighty', '9': 'ninety'
+    }
+
+
 name_of_cache = {}
 
-def name_of(n: str, use_cache=True) -> str:
-    # Returns the English name of a number according to the short scale
+
+def name_of(n: str, use_cache=True, sep=' ') -> str:
+    # Main function. Returns the complete name of a number
     if use_cache and n in name_of_cache:
         return name_of_cache[n]
     if not n.isdigit():
@@ -21,20 +57,20 @@ def name_of(n: str, use_cache=True) -> str:
     if set(n) <= {'0'}:
         return 'zero'
     n = n.lstrip('0')
-    n = '0' * (3 - (len(n) % 3 or 3)) + n
-    n_els = [n[i:i+3] for i in range(0, len(n), 3)]
-    name_els = []
-    if len(n_els) > 1:
-        for i, m in enumerate(n_els[:-1]):
-            name_els.append(amount_prefix(m) + ' ' + zillion_suffix(len(n_els) - i - 2))
-    name_units = amount_prefix(n_els[-1])
-    if name_els and name_units and ' and ' not in name_units:
-        name_units = 'and ' + name_units
-    name_els.append(name_units)
-    name = ('\n' if '-n' in sys.argv else ' ').join(name_els)
+    n_split = [n[(-i):(-i - 3)] for i in range(0, len(n), 3)]
+    zillion_amount = len(n_split)
+    zillion_names = []
+    if zillion_amount > 1:
+        for i, part in enumerate(n_split[:-1]):
+            zillion_names.append(name_of_units(part) + ' ' + zillion_suffix(zillion_amount - i - 2))
+    units_name = name_of_units(n_split[-1])
+    if (zillion_names and units_name) and ' and ' not in units_name:
+        units_name = 'and ' + units_name
+    zillion_names.append(units_name)
+    n_name = sep.join(zillion_names)
     if use_cache:
-        name_of_cache[n] = name
-    return name
+        name_of_cache[n] = n_name
+    return n_name
         
 
 zillion_suffix_cache = {
@@ -42,103 +78,77 @@ zillion_suffix_cache = {
     5: 'quintillion', 6: 'sextillion', 7: 'septillion', 8: 'octillion', 9: 'nonillion'
 }
 
+
 def zillion_suffix(n: int) -> str:
-    # Returns the complete name of the zillion such that 10^(3n + 3) is 1 such zillion
+    # Returns the name of a zillion such that one of it equals 10^(3n + 3)
     # E.g. 0 = thousand, 1 = million, 2 = billion, etc.
     if n in zillion_suffix_cache:
         return zillion_suffix_cache[n]
     parts = []
     while n > 0:
-        parts.append(partial_zillion_prefix(n % 1000))
+        parts.append(partial_single_zillion_suffix(n % 1000))
         n //= 1000
     return ''.join(parts[::-1]) + 'on'
 
 
-partial_zillion_prefix_cache = {n: s[:-2] for n, s in zillion_suffix_cache.items()}
-partial_zillion_prefix_cache[0] = 'nilli'
+partial_single_zillion_suffix_cache = {n: s[:-2] for n, s in zillion_suffix_cache.items()}
+partial_single_zillion_suffix_cache[0] = 'nilli'
 
-def partial_zillion_prefix(n: int) -> str:
+
+def partial_single_zillion_suffix(n: int) -> str:
     # Returns the partial name of the nth zillion (i.e. ending in "illi"), where n is at most 999
-    if n in partial_zillion_prefix_cache:
-        return partial_zillion_prefix_cache[n]
-    S = {'viginti', 'triginta', 'quadraginta', 'quinquaginta',
-         'trecenti', 'quadringenti', 'quingenti'}
-    X = {'octoginta', 'centi', 'octigenti'}
-    M = {'viginti', 'octoginta', 'octigenti'}
-    N = {'deci', 'triginta', 'quadraginta', 'quinquaginta', 'sexaginta',
-         'centi', 'ducenti', 'trecenti', 'quadrigenti', 'quingenti', 'sescenti', 'septigenti'}
-    els = []
-    els.append({
-        0: '', 1: 'centi', 2: 'ducenti', 3: 'trecenti', 4: 'quadrigenti',
-        5: 'quingenti', 6: 'sescenti', 7: 'septigenti', 8: 'octigenti', 9: 'nongenti'
-    }[n // 100])
-    els.append({
-        0: '', 1: 'deci', 2: 'viginti', 3: 'triginta', 4: 'quadraginta',
-        5: 'quinquaginta', 6: 'sexaginta', 7: 'septuaginta', 8: 'octoginta', 9: 'nonaginta'
-    }[n % 100 // 10])
-    els.append({
-        0: '', 1: 'un', 2: 'duo', 3: 'tre', 4: 'quattuor',
-        5: 'quinqua', 6: 'se', 7: 'septe', 8: 'octo', 9: 'nove'
-    }[n % 10])
-    unbr = 1 if els[1] else 0 if els[0] else -1
-    if els[2] and unbr != -1:
-        if els[2] == 'tre' and (els[unbr] in S or els[unbr] in X):
-            els[2] += 's'
-        elif els[2] == 'se':
-            if els[unbr] in S:
-                els[2] += 's'
-            elif els[unbr] in X:
-                els[2] += 'x'
-        elif els[2] in {'setpe', 'nove'}:
-            if els[unbr] in M:
-                els[2] += 'm'
-            elif els[unbr] in N:
-                els[2] += 'n'
-    prefix = ''.join(els[::-1])[:-1] + 'illi'
-    partial_zillion_prefix_cache[n] = prefix
-    return prefix
+    if n in partial_single_zillion_suffix_cache:
+        return partial_single_zillion_suffix_cache[n]
+    parts = [ZillionNames.UNITS[n % 10], ZillionNames.TENS[n % 100 // 10], ZillionNames.HUNDREDS[n // 100]]
+    parts = list(filter(lambda p: p, parts))
+    if len(parts) > 1:
+        if parts[0] == 'tre' and parts[1] in ZillionNames.S | ZillionNames.X:
+            parts[0] += 's'
+        elif parts[0] == 'se':
+            if parts[1] in ZillionNames.S:
+                parts[0] += 's'
+            elif parts[1] in ZillionNames.X:
+                parts[0] += 'x'
+        elif parts[0] in {'setpe', 'nove'}:
+            if parts[1] in ZillionNames.M:
+                parts[0] += 'm'
+            elif parts[1] in ZillionNames.N:
+                parts[0] += 'n'
+    suffix = ''.join(parts)[:-1] + 'illi'
+    partial_single_zillion_suffix_cache[n] = suffix
+    return suffix
     
 
-amount_prefix_cache = {}
+name_of_units_cache = {}
 
-def amount_prefix(n: str) -> str:
-    # Returns the name of a three-digit number (assumes zero-padding)
-    unit_names = {
-        '1': 'one', '2': 'two', '3': 'three', '4': 'four', '5': 'five',
-        '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine'
-    }
-    teen_names = {
-        '1': 'eleven', '2': 'twelve', '3': 'thirteen', '4': 'fourteen', '5': 'fifteen',
-        '6': 'sixteen', '7': 'seventeen', '8': 'eighteen', '9': 'nineteen'
-    }
-    tens_names = {
-        '1': 'ten', '2': 'twenty', '3': 'thirty', '4': 'forty', '5': 'fifty',
-        '6': 'sixty', '7': 'seventy', '8': 'eighty', '9': 'ninety'
-    }
-    if n in amount_prefix_cache:
-        return amount_prefix_cache[n]
-    u, t, h = tuple(n[::-1])
-    p = ''
-    if h != '0':
-        p += unit_names[h] + ' hundred'
-        if not {t, u} <= {'0'}:
-            p += ' and '
-    if u != '0' and t == '1':
-        p += teen_names[u]
+
+def name_of_units(n: str) -> str:
+    # Returns the name of a three-digit number (zeroes on the left are acceptable)
+    if n in name_of_units_cache:
+        return name_of_units_cache[n]
+    u_name, tens, hundreds = tuple(n[::-1])
+    name = ''
+    if hundreds != '0':
+        name += UnitNames.UNITS[hundreds] + ' hundred'
+        if not {tens, u_name} <= {'0'}:
+            name += ' and '
+    if u_name != '0' and tens == '1':
+        name += UnitNames.TEENS[u_name]
     else:
-        if c := tens_names.get(t, None):
-            p += c
-        if d := unit_names.get(u, None):
-            p += ' ' + d if c else d
-    return p
+        if t_name := UnitNames.TENS.get(tens, None):
+            name += t_name
+        if u_name := UnitNames.UNITS.get(u_name, None):
+            name += (' ' + u_name) if t_name else u_name
+    return name
 
 
 if __name__ == '__main__':
-    while s := sys.stdin.readline():
-        if '-s' in sys.argv:
-            sys.stderr.write(s)
-        sys.stdout.write(name_of(s.strip()) + '\n')
-        if '-s' in sys.argv:
-            sys.stderr.write('Done')
+    s = '-s' in sys.argv
+    n = '-n' in sys.argv
+    while n := sys.stdin.readline():
+        if s:
+            sys.stderr.write(n)
+        sys.stdout.write(name_of(n.strip(), sep='\n' if n else ' ') + '\n')
+        if s:
+            sys.stderr.write('Done\n')
             sys.stderr.flush()
-    

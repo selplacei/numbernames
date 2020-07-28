@@ -10,7 +10,6 @@
 #   three million two thousand and fifty one
 import sys
 
-
 class ZillionNames:
     HUNDREDS = {
         0: '', 1: 'centi', 2: 'ducenti', 3: 'trecenti', 4: 'quadrigenti',
@@ -27,7 +26,13 @@ class ZillionNames:
     S = {TENS[2], TENS[3], TENS[4], TENS[5], HUNDREDS[3], HUNDREDS[4], HUNDREDS[5]}
     X = {TENS[8], HUNDREDS[1], HUNDREDS[8]}
     M = {TENS[2], TENS[8], HUNDREDS[8]}
-    N = {TENS[1], TENS[3], TENS[4], TENS[5], TENS[6], *(HUNDREDS[i] for i in range(1, 8))}
+    # The following code doesn't work. This bug has been marked as wontfix because obscure generator expressions where the local
+    # context goes away at evaluation are the priority for Python devs, and just capturing the value is too hard.
+    # N = {TENS[1], TENS[3], TENS[4], TENS[5], TENS[6], *(HUNDREDS[i] for i in range(1, 8))}
+    N = {
+        TENS[1], TENS[3], TENS[4], TENS[5], TENS[6],
+        HUNDREDS[1], HUNDREDS[2], HUNDREDS[3], HUNDREDS[4], HUNDREDS[5], HUNDREDS[6], HUNDREDS[7] 
+    }
 
 
 class UnitNames:
@@ -53,11 +58,13 @@ def name_of(n: str, use_cache=True, sep=' ') -> str:
     if use_cache and n in name_of_cache:
         return name_of_cache[n]
     if not n.isdigit():
-        return 'not a number'
+        return 'not an integer'
     if set(n) <= {'0'}:
         return 'zero'
     n = n.lstrip('0')
-    n_split = [n[(-i):(-i - 3)] for i in range(0, len(n), 3)]
+    n_split = list(reversed([n[max(0, i - 3):i] for i in range(len(n), 0, -3)]))
+    if len(n_split[0]) != 3:
+        n_split[0] = '0' * (3 - len(n_split[0])) + n_split[0]
     zillion_amount = len(n_split)
     zillion_names = []
     if zillion_amount > 1:
@@ -100,7 +107,7 @@ def partial_single_zillion_suffix(n: int) -> str:
     if n in partial_single_zillion_suffix_cache:
         return partial_single_zillion_suffix_cache[n]
     parts = [ZillionNames.UNITS[n % 10], ZillionNames.TENS[n % 100 // 10], ZillionNames.HUNDREDS[n // 100]]
-    parts = list(filter(lambda p: p, parts))
+    parts = list(filter(None, parts))
     if len(parts) > 1:
         if parts[0] == 'tre' and parts[1] in ZillionNames.S | ZillionNames.X:
             parts[0] += 's'
@@ -123,32 +130,32 @@ name_of_units_cache = {}
 
 
 def name_of_units(n: str) -> str:
-    # Returns the name of a three-digit number (zeroes on the left are acceptable)
+    # Returns the name of a three-digit number (zeroes on the left are mandatory if the number is less than 100)
     if n in name_of_units_cache:
         return name_of_units_cache[n]
-    u_name, tens, hundreds = tuple(n[::-1])
+    units, tens, hundreds = tuple(n[::-1])
     name = ''
     if hundreds != '0':
         name += UnitNames.UNITS[hundreds] + ' hundred'
-        if not {tens, u_name} <= {'0'}:
+        if not {tens, units} <= {'0'}:
             name += ' and '
-    if u_name != '0' and tens == '1':
-        name += UnitNames.TEENS[u_name]
+    if units != '0' and tens == '1':
+        name += UnitNames.TEENS[units]
     else:
         if t_name := UnitNames.TENS.get(tens, None):
             name += t_name
-        if u_name := UnitNames.UNITS.get(u_name, None):
+        if u_name := UnitNames.UNITS.get(units, None):
             name += (' ' + u_name) if t_name else u_name
     return name
 
 
 if __name__ == '__main__':
     s = '-s' in sys.argv
-    n = '-n' in sys.argv
+    sep = '\n' if '-n' in sys.argv else ' '
     while n := sys.stdin.readline():
         if s:
             sys.stderr.write(n)
-        sys.stdout.write(name_of(n.strip(), sep='\n' if n else ' ') + '\n')
+        sys.stdout.write(name_of(n.strip(), sep=sep) + '\n')
         if s:
             sys.stderr.write('Done\n')
             sys.stderr.flush()
